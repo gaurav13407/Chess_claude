@@ -111,13 +111,137 @@ TEST(CastlingRightsTest, Basics) {
     EXPECT_TRUE(cr2.black_queen_side());
 }
 
-// Test Position (default constructor)
+// Test Position
 TEST(PositionTest, DefaultConstructor) {
     using chess::Position;
+    using chess::Color;
+    using chess::PieceType;
+    using chess::Square;
+
     Position pos;
     EXPECT_EQ(pos.side_to_move(), chess::Color::White);
-    EXPECT_FALSE(pos.castling_rights().white_king_side()); // initially false? Actually default castling rights should be all false? We'll see.
-    // We'll just check that it doesn't crash.
+    // Initially, the board is empty
+    Color c;
+    EXPECT_EQ(pos.piece_on(Square(0), c), chess::PieceType::None);
+    EXPECT_FALSE(pos.occupied(Square(0)));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::White));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::Black));
+}
+
+TEST(PositionTest, SetAndGetPiece) {
+    using chess::Position;
+    using chess::Color;
+    using chess::PieceType;
+    using chess::Square;
+
+    Position pos;
+    // Place a white pawn on a1 (square 0)
+    pos.set_piece(Square(0), chess::Color::White, chess::PieceType::Pawn);
+    Color c;
+    PieceType pt = pos.piece_on(Square(0), c);
+    EXPECT_EQ(pt, chess::PieceType::Pawn);
+    EXPECT_EQ(c, chess::Color::White);
+    EXPECT_TRUE(pos.occupied(Square(0)));
+    EXPECT_TRUE(pos.occupied_by(Square(0), chess::Color::White));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::Black));
+
+    // Place a black king on e1 (square 4)
+    pos.set_piece(Square(4), chess::Color::Black, chess::PieceType::King);
+    pt = pos.piece_on(Square(4), c);
+    EXPECT_EQ(pt, chess::PieceType::King);
+    EXPECT_EQ(c, chess::Color::Black);
+    EXPECT_TRUE(pos.occupied(Square(4)));
+    EXPECT_TRUE(pos.occupied_by(Square(4), chess::Color::Black));
+    EXPECT_FALSE(pos.occupied_by(Square(4), chess::Color::White));
+
+    // Check that a1 still has the white pawn
+    pt = pos.piece_on(Square(0), c);
+    EXPECT_EQ(pt, chess::PieceType::Pawn);
+    EXPECT_EQ(c, chess::Color::White);
+}
+
+TEST(PositionTest, RemovePiece) {
+    using chess::Position;
+    using chess::Color;
+    using chess::PieceType;
+    using chess::Square;
+
+    Position pos;
+    // Place a white knight on b1 (square 1)
+    pos.set_piece(Square(1), chess::Color::White, chess::PieceType::Knight);
+    Color c;
+    PieceType pt = pos.piece_on(Square(1), c);
+    EXPECT_EQ(pt, chess::PieceType::Knight);
+    EXPECT_EQ(c, chess::Color::White);
+
+    // Remove the piece
+    bool removed = pos.remove_piece(Square(1), c, pt);
+    EXPECT_TRUE(removed);
+    EXPECT_EQ(pt, chess::PieceType::Knight);
+    EXPECT_EQ(c, chess::Color::White);
+    EXPECT_EQ(pos.piece_on(Square(1), c), chess::PieceType::None);
+    EXPECT_FALSE(pos.occupied(Square(1)));
+
+    // Try to remove from an empty square
+    Color c2;
+    PieceType pt2;
+    bool removed2 = pos.remove_piece(Square(1), c2, pt2);
+    EXPECT_FALSE(removed2);
+}
+
+TEST(PositionTest, Occupancy) {
+    using chess::Position;
+    using chess::Color;
+    using chess::PieceType;
+    using chess::Square;
+
+    Position pos;
+    // Initially, all squares should be unoccupied
+    for (uint8_t sq = 0; sq < 64; ++sq) {
+        EXPECT_FALSE(pos.occupied(Square(sq)));
+        EXPECT_FALSE(pos.occupied_by(Square(sq), chess::Color::White));
+        EXPECT_FALSE(pos.occupied_by(Square(sq), chess::Color::Black));
+    }
+
+    // Place a white pawn on a1 (square 0)
+    pos.set_piece(Square(0), chess::Color::White, chess::PieceType::Pawn);
+    EXPECT_TRUE(pos.occupied(Square(0)));
+    EXPECT_TRUE(pos.occupied_by(Square(0), chess::Color::White));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::Black));
+    EXPECT_EQ(pos.piece_on(Square(0)), chess::PieceType::Pawn);
+    Color c;
+    PieceType pt;
+    EXPECT_EQ(pos.piece_on(Square(0), c), chess::PieceType::Pawn);
+    EXPECT_EQ(c, chess::Color::White);
+
+    // Place a black pawn on a2 (square 8)
+    pos.set_piece(Square(8), chess::Color::Black, chess::PieceType::Pawn);
+    EXPECT_TRUE(pos.occupied(Square(8)));
+    EXPECT_TRUE(pos.occupied_by(Square(8), chess::Color::Black));
+    EXPECT_FALSE(pos.occupied_by(Square(8), chess::Color::White));
+    EXPECT_EQ(pos.piece_on(Square(8)), chess::PieceType::Pawn);
+    EXPECT_EQ(pos.piece_on(Square(8), c), chess::PieceType::Pawn);
+    EXPECT_EQ(c, chess::Color::Black);
+
+    // Check that a1 is still occupied by the white pawn
+    EXPECT_TRUE(pos.occupied(Square(0)));
+    EXPECT_TRUE(pos.occupied_by(Square(0), chess::Color::White));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::Black));
+    EXPECT_EQ(pos.piece_on(Square(0)), chess::PieceType::Pawn);
+
+    // Remove the white pawn from a1
+    pos.remove_piece(Square(0), c, pt);
+    EXPECT_FALSE(pos.occupied(Square(0)));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::White));
+    EXPECT_FALSE(pos.occupied_by(Square(0), chess::Color::Black));
+    EXPECT_EQ(pos.piece_on(Square(0)), chess::PieceType::None);
+
+    // Remove the black pawn from a2
+    pos.remove_piece(Square(8), c, pt);
+    EXPECT_FALSE(pos.occupied(Square(8)));
+    EXPECT_FALSE(pos.occupied_by(Square(8), chess::Color::White));
+    EXPECT_FALSE(pos.occupied_by(Square(8), chess::Color::Black));
+    EXPECT_EQ(pos.piece_on(Square(8)), chess::PieceType::None);
 }
 
 int main(int argc, char **argv) {
