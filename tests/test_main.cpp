@@ -244,6 +244,75 @@ TEST(PositionTest, Occupancy) {
     EXPECT_EQ(pos.piece_on(Square(8)), chess::PieceType::None);
 }
 
+TEST(PositionTest, Fen) {
+    using chess::Position;
+    using chess::Color;
+    using chess::PieceType;
+    using chess::Square;
+
+    // Test the starting position
+    const char* start_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    Position pos(start_fen);
+
+    // Check side to move
+    EXPECT_EQ(pos.side_to_move(), chess::Color::White);
+
+    // Check castling rights
+    EXPECT_TRUE(pos.castling_rights().white_king_side());
+    EXPECT_TRUE(pos.castling_rights().white_queen_side());
+    EXPECT_TRUE(pos.castling_rights().black_king_side());
+    EXPECT_TRUE(pos.castling_rights().black_queen_side());
+
+    // Check en passant
+    EXPECT_FALSE(pos.has_en_passant()); // Now we have a getter
+
+    // Check halfmove clock and fullmove number
+    EXPECT_EQ(pos.halfmove_clock(), 0);
+    EXPECT_EQ(pos.fullmove_number(), 1);
+
+    // Check a few piece placements
+    // White king on e1 (square 4)
+    Color c;
+    PieceType pt = pos.piece_on(Square(4), c);
+    EXPECT_EQ(pt, chess::PieceType::King);
+    EXPECT_EQ(c, chess::Color::White);
+
+    // White queen on d1 (square 3)
+    pt = pos.piece_on(Square(3), c);
+    EXPECT_EQ(pt, chess::PieceType::Queen);
+    EXPECT_EQ(c, chess::Color::White);
+
+    // Black king on e8 (square 60)
+    pt = pos.piece_on(Square(60), c);
+    EXPECT_EQ(pt, chess::PieceType::King);
+    EXPECT_EQ(c, chess::Color::Black);
+
+    // Black queen on d8 (square 59)
+    pt = pos.piece_on(Square(59), c);
+    EXPECT_EQ(pt, chess::PieceType::Queen);
+    EXPECT_EQ(c, chess::Color::Black);
+
+    // White pawn on a2 (square 8)
+    pt = pos.piece_on(Square(8), c);
+    EXPECT_EQ(pt, chess::PieceType::Pawn);
+    EXPECT_EQ(c, chess::Color::White);
+
+    // Black pawn on a7 (square 48)
+    pt = pos.piece_on(Square(48), c);
+    EXPECT_EQ(pt, chess::PieceType::Pawn);
+    EXPECT_EQ(c, chess::Color::Black);
+
+    // Check that the FEN string we generate matches the input (up to the spaces we normalized)
+    std::string generated = pos.fen();
+    // The generated FEN should have the same board placement, side to move, castling rights, en passant, halfmove, fullmove.
+    // We can compare the strings directly, but note that our en passant square is set to '-' and we have no en passant.
+    // Also, we store castling rights as four booleans, and we output them in the order KQkq.
+    // The input FEN has "w KQkq - 0 1", so we expect the same.
+    // However, note that our board placement uses empty numbers, which should be the same.
+    // We'll do a direct string comparison.
+    EXPECT_EQ(generated, start_fen);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

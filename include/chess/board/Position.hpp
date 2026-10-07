@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include "../Color.hpp"
 #include "../utils/Square.hpp"
 #include "CastlingRights.hpp"
@@ -28,7 +29,170 @@ public:
     {}
 
     explicit Position(const char* fen) : Position() {
-        // TODO: implement FEN parsing (M3)
+        // Parse the FEN string
+        std::string fen_str(fen);
+        size_t pos = 0;
+        auto next_space = [&]() {
+            size_t next = fen_str.find(' ', pos);
+            std::string token = (next == std::string::npos) ? fen_str.substr(pos) : fen_str.substr(pos, next - pos);
+            pos = (next == std::string::npos) ? fen_str.size() : next + 1;
+            return token;
+        };
+
+        // 1. Piece placement
+        std::string placement = next_space();
+        int rank = 7; // start from rank 8 (index 7) down to 0
+        int file = 0;
+        for (char c : placement) {
+            if (c == '/') {
+                rank--;
+                file = 0;
+            } else if (isdigit(c)) {
+                int offset = c - '0';
+                file += offset;
+            } else {
+                Color color;
+                PieceType type;
+                switch (c) {
+                    case 'P': color = Color::White; type = PieceType::Pawn; break;
+                    case 'N': color = Color::White; type = PieceType::Knight; break;
+                    case 'B': color = Color::White; type = PieceType::Bishop; break;
+                    case 'R': color = Color::White; type = PieceType::Rook; break;
+                    case 'Q': color = Color::White; type = PieceType::Queen; break;
+                    case 'K': color = Color::White; type = PieceType::King; break;
+                    case 'p': color = Color::Black; type = PieceType::Pawn; break;
+                    case 'n': color = Color::Black; type = PieceType::Knight; break;
+                    case 'b': color = Color::Black; type = PieceType::Bishop; break;
+                    case 'r': color = Color::Black; type = PieceType::Rook; break;
+                    case 'q': color = Color::Black; type = PieceType::Queen; break;
+                    case 'k': color = Color::Black; type = PieceType::King; break;
+                    default: continue; // should not happen
+                }
+                set_piece(Square(static_cast<uint8_t>(rank * 8 + file)), color, type);
+                file++;
+            }
+        }
+
+        // 2. Side to move
+        std::string side_str = next_space();
+        if (side_str == "w") {
+            side_to_move_ = Color::White;
+        } else if (side_str == "b") {
+            side_to_move_ = Color::Black;
+        }
+
+        // 3. Castling rights
+        std::string castling_str = next_space();
+        if (castling_str != "-") {
+            for (char c : castling_str) {
+                switch (c) {
+                    case 'K': castling_rights_.set_white_king_side(true); break;
+                    case 'Q': castling_rights_.set_white_queen_side(true); break;
+                    case 'k': castling_rights_.set_black_king_side(true); break;
+                    case 'q': castling_rights_.set_black_queen_side(true); break;
+                }
+            }
+        }
+
+        // 4. En passant square
+        std::string ep_str = next_space();
+        if (ep_str != "-") {
+            // Assume the string is two characters: file and rank
+            if (ep_str.size() == 2) {
+                char file_char = ep_str[0];
+                char rank_char = ep_str[1];
+                int ep_file = file_char - 'a';
+                int ep_rank = rank_char - '1';
+                if (ep_file >= 0 && ep_file < 8 && ep_rank >= 0 && ep_rank < 8) {
+                    en_passant_square_ = Square(static_cast<uint8_t>(ep_rank * 8 + ep_file));
+                    has_en_passant_ = true;
+                }
+            }
+        }
+
+        // 5. Halfmove clock
+        std::string hm_clock_str = next_space();
+        halfmove_clock_ = std::stoi(hm_clock_str);
+
+        // 6. Fullmove number
+        std::string fullmove_str = next_space();
+        fullmove_number_ = std::stoi(fullmove_str);
+    }
+
+    // Returns the FEN string representation of the position
+    std::string fen() const {
+        std::string result;
+
+        // 1. Piece placement
+        for (int rank = 7; rank >= 0; --rank) {
+            int empty_count = 0;
+            for (int file = 0; file < 8; ++file) {
+                Square sq(static_cast<uint8_t>(rank * 8 + file));
+                Color c;
+                PieceType p = piece_on(sq, c);
+                if (p == PieceType::None) {
+                    empty_count++;
+                } else {
+                    if (empty_count > 0) {
+                        result += static_cast<char>('0' + empty_count);
+                        empty_count = 0;
+                    }
+                    char piece_char;
+                    switch (p) {
+                        case PieceType::Pawn:   piece_char = (c == Color::White) ? 'P' : 'p'; break;
+                        case PieceType::Knight: piece_char = (c == Color::White) ? 'N' : 'n'; break;
+                        case PieceType::Bishop: piece_char = (c == Color::White) ? 'B' : 'b'; break;
+                        case PieceType::Rook:   piece_char = (c == Color::White) ? 'R' : 'r'; break;
+                        case PieceType::Queen:  piece_char = (c == Color::White) ? 'Q' : 'q'; break;
+                        case PieceType::King:   piece_char = (c == Color::White) ? 'K' : 'k'; break;
+                        default: piece_char = '?'; // should not happen
+                    }
+                    result += piece_char;
+                }
+            }
+            if (empty_count > 0) {
+                result += static_cast<char>('0' + empty_count);
+            }
+            if (rank != 0) {
+                result += '/';
+            }
+        }
+
+        result += ' ';
+        // 2. Side to move
+        result += (side_to_move_ == Color::White) ? 'w' : 'b';
+        result += ' ';
+
+        // 3. Castling rights
+        if (castling_rights_.white_king_side()) result += 'K';
+        if (castling_rights_.white_queen_side()) result += 'Q';
+        if (castling_rights_.black_king_side()) result += 'k';
+        if (castling_rights_.black_queen_side()) result += 'q';
+        if (!castling_rights_.white_king_side() && !castling_rights_.white_queen_side() &&
+            !castling_rights_.black_king_side() && !castling_rights_.black_queen_side()) {
+            result += '-';
+        }
+        result += ' ';
+
+        // 4. En passant square
+        if (has_en_passant_) {
+            int file = en_passant_square_.file();
+            int rank = en_passant_square_.rank();
+            result += static_cast<char>('a' + file);
+            result += static_cast<char>('1' + rank);
+        } else {
+            result += '-';
+        }
+        result += ' ';
+
+        // 5. Halfmove clock
+        result += std::to_string(halfmove_clock_);
+        result += ' ';
+
+        // 6. Fullmove number
+        result += std::to_string(fullmove_number_);
+
+        return result;
     }
 
     // Clears the board (sets all pieces to empty)
@@ -132,6 +296,7 @@ public:
     Color side_to_move() const { return side_to_move_; }
     const CastlingRights& castling_rights() const { return castling_rights_; }
     Square en_passant_square() const { return en_passant_square_; }
+    bool has_en_passant() const { return has_en_passant_; } // Added getter for testing
     int halfmove_clock() const { return halfmove_clock_; }
     int fullmove_number() const { return fullmove_number_; }
     uint64_t zobrist_hash() const { return zobrist_hash_; }
