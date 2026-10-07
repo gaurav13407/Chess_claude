@@ -1,0 +1,54 @@
+# Build directories
+build/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# Executables
+*.out
+*.exe
+
+# Object files
+*.o
+*.obj
+
+# Static libraries
+*.a
+*.lib
+
+# Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Python files
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+*.sln
+*.vcproj
+
+# Testing
+test_output/
+*.gcda
+*.gcno
+*.gcov
+
+# Documentation generated
+docs/html/
+docs/latex/
+
+# Misc
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
